@@ -25,33 +25,32 @@ db.once("open", function () {
 
 const Schema = mongoose.Schema;
 
-const exerciseSchema = new Schema({
-  username: String,
-  description: String,
-  duration: Number,
-  date: Date,
-});
+
 
 const userSchema = new Schema({
-  username : String,
+  username: {
+    type: String,
+    required: true,
+  },
+  log: [
+    {
+      description: {
+        type: String,
+        required: true,
+      },
+      duration: {
+        type: Number,
+        required: true,
+      },
+      date: {
+        type: Date,
+        required: true,
+      },
+    },
+  ],
+});
 
-})
-
-const logSchema = new Schema({
-  username : String,
-  count: Number,
-  log: [{
-    description : String,
-    duration : Number,
-    date: Date
-  }]
-})
-
-const Exercise = mongoose.model("Exercise", exerciseSchema);
-const User = mongoose.model("Student", userSchema);
-const Log = mongoose.model("Log", logSchema);
-
-
+const User = mongoose.model("User", userSchema);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -65,15 +64,66 @@ app.get("/", (req, res) => {
 });
 
 app.post("/api/users",async (req, res) => {
-  const body = req.body.username;
-  if (!body) {
-   console.log("body's request not found")
+  const username = req.body.username;
+  if (!username) {
+   console.log("username's request not found")
   }
   else {
-     await User.save({ 
-       username : body.username
-     });
+    let user = new User({ username, log :[] });
+    await user.save()
+    .then((result) => {res.json({result})})
+    .catch((error) => console.log(error))
   }})
+
+  app.get("/api/users", async (req, res) => {
+    User.find()
+    .then((result) => {
+      res.json(result)
+    })
+    .catch((error) => console.log(error))
+  })
+
+  app.post("/api/users/:_id/exercises", async (req, res) => {
+        const id = req.params._id;
+         const {description,duration}  = req.body;
+  
+        User.findById({_id : id})
+        .then(async (result) => {
+           const date = new Date();
+          
+       
+          await User.updateOne({_id: result._id}, {
+            log : {
+              description,
+              duration,
+              date: date
+            }
+           });
+           
+            res.json({
+              username: result.username,
+              count: result.log.length,
+              _id: result._id,
+              log: [
+                {
+                  description,
+                  duration,
+                  date,
+                },
+              ],
+            });
+        })
+        .catch((error) => console.log(error))
+       
+  });
+
+  app.get("/api/users/:id/logs", (req, res) => {
+    const id = req.params.id;
+    User.findById({_id : id})
+    .then((result) => {
+      res.json({logs : result.log})
+    })
+  })
 
 app.listen(port, () => {
   console.log(`listening on port ${port}`);
